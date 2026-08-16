@@ -13,7 +13,7 @@ This specification intentionally contains **no copy of the Java implementation**
 The reconstructed Java source must begin with a documentation header containing the following information:
 
 - **Application name:** PDF Handout Generator
-- **Version:** 1.0.0
+- **Version:** 1.1
 - **Language:** Java
 - **GUI toolkit:** Swing/AWT
 - **PDF engine:** Apache PDFBox
@@ -69,6 +69,7 @@ The application must not require pdfjam, LaTeX, JavaFX, Ghostscript, LibreOffice
 - Compile with the Maven compiler `release` set to 21.
 - Use Java records where useful for immutable option snapshots.
 - Use standard Java desktop APIs from `java.desktop`.
+- Use Java's `Preferences` API from `java.prefs` to retain the most recently used input directory across application restarts.
 
 ### 4.2 GUI framework
 
@@ -219,6 +220,54 @@ It uses a left-to-right layout equivalent to:
 The text field expands horizontally. The button retains its natural width.
 
 Opening a PDF should also propose a default output path in the same directory. If the input is `lecture.pdf`, the default output is `lecture-handout.pdf`.
+
+### 7.1 Remembered input directory
+
+The Open PDF dialog remembers the directory containing the most recently selected input PDF.
+
+The remembered location applies only to the input-file chooser. It is independent of the directory selected through the output-file chooser.
+
+The application maintains:
+
+- An in-memory nullable `Path` conceptually named `lastInputDirectory`.
+- A Java `Preferences` entry containing the persisted directory path.
+- A preference key named `lastInputDirectory`.
+
+Before displaying the Open PDF dialog:
+
+1. Check whether the in-memory `lastInputDirectory` value is non-null and identifies an existing directory.
+2. If the in-memory value is valid, use it as the chooser's current directory.
+3. Otherwise, read the `lastInputDirectory` value from Java Preferences.
+4. Convert the stored string to a `Path`.
+5. Confirm that the stored path identifies an existing, accessible directory.
+6. If valid, use it as the chooser's current directory and assign it to the in-memory field.
+7. If no valid remembered directory exists, do not explicitly set the chooser's current directory. Allow `JFileChooser` to use its normal platform default.
+
+After the user approves the Open PDF dialog:
+
+1. Obtain the selected file's absolute normalized path.
+2. Obtain the selected file's parent directory.
+3. Assign that parent directory to the in-memory `lastInputDirectory` field.
+4. Store the parent directory's string representation in Java Preferences.
+5. Continue with the ordinary PDF-loading workflow.
+
+If the user cancels the dialog:
+
+- Do not change the in-memory remembered directory.
+- Do not change the stored preference.
+- Do not close the currently loaded PDF.
+- Do not change the input path.
+- Do not change the proposed output path.
+- Do not clear the preview.
+
+If the remembered directory has been deleted, renamed, or is no longer accessible:
+
+- Ignore it without displaying an error.
+- Remove or replace the invalid in-memory value.
+- Allow `JFileChooser` to use its normal platform default directory.
+- Do not prevent the application from opening normally.
+
+Failure to read or write the directory preference is non-fatal. Remembering the directory is a convenience and must never prevent PDF loading or application startup.
 
 ---
 
@@ -520,6 +569,7 @@ Maintain the following logical state:
 - Current output page selected by scrollbar.
 - Bounded preview-image cache.
 - Busy state for loading or generation.
+- Last input directory, or null if no input PDF has yet been selected during the current application session.
 
 Create an immutable options snapshot before starting PDF generation so that background work does not read mutable Swing controls directly.
 

@@ -118,7 +118,7 @@ public final class PdfHandoutApp extends JFrame {
 
     private static final long serialVersionUID = 1L;
     private static final String APP_NAME = "PDF Handout Generator";
-    private static final String APP_VERSION = "1.0.0";
+    private static final String APP_VERSION = "1.1";
     private static final String PROJECT_URL =
             "https://github.com/denniskhong/pdf-handout-generator";
     private static final float PREVIEW_DPI = 96.0f;
@@ -142,6 +142,7 @@ public final class PdfHandoutApp extends JFrame {
     private PDDocument document;
     private PDFRenderer renderer;
     private Path inputPath;
+    private Path lastInputDirectory;
     private boolean changingScrollBar;
 
     /** Access-ordered cache of preview images; bounded to limit memory usage. */
@@ -463,17 +464,45 @@ public final class PdfHandoutApp extends JFrame {
         JFileChooser chooser = new JFileChooser();
         chooser.setDialogTitle("Open PDF");
         chooser.setFileFilter(new FileNameExtensionFilter("PDF documents", "pdf"));
-        if (chooser.showOpenDialog(this) != JFileChooser.APPROVE_OPTION) {
+        
+        /*
+         * Return to the directory containing the previously selected PDF.
+         * If no PDF has yet been selected, JFileChooser retains its normal
+         * default, which is usually the user's home directory.
+        */
+         
+        if (lastInputDirectory != null
+                && Files.isDirectory(lastInputDirectory)) {
+            chooser.setCurrentDirectory(lastInputDirectory.toFile());
+        }
+
+        if (chooser.showOpenDialog(this)
+                != JFileChooser.APPROVE_OPTION) {
             return;
         }
 
+        inputPath = chooser.getSelectedFile()
+                .toPath()
+                .toAbsolutePath()
+                .normalize();
+
+        /*
+         * Remember the directory only after the user approves the chooser.
+         * Cancelling the dialog therefore does not change the remembered
+         * location.
+        */
+        lastInputDirectory = inputPath.getParent();
+
         closeDocument();
-        inputPath = chooser.getSelectedFile().toPath().toAbsolutePath().normalize();
+
         inputField.setText(inputPath.toString());
+
         outputField.setText(defaultOutputPath(inputPath).toString());
+
         synchronized (pageImageCache) {
             pageImageCache.clear();
         }
+        
         setBusy(true, "Loading PDF...");
 
         new SwingWorker<PDDocument, Void>() {
