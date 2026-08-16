@@ -4,6 +4,9 @@ This version uses Swing/AWT instead of JavaFX. It creates one executable fat JAR
 
 - Layout panel anchored at the top; output row aligned consistently with the input row.
 
+<img width="1120" height="860" alt="image" src="https://github.com/user-attachments/assets/f4100dc5-0506-4571-ace7-5d163b786fae" />
+
+
 ## Requirements
 
 - Java 21 or newer
